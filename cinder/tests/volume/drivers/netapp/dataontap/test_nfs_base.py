@@ -260,7 +260,7 @@ class NetAppNfsDriverTestCase(test.TestCase):
         self.assertEqual(expected, result)
 
     def test_get_export_ip_path_share_provided(self):
-        expected = (fake.HOST_NAME, fake.EXPORT_PATH)
+        expected = (fake.SHARE_IP, fake.EXPORT_PATH)
 
         result = self.driver._get_export_ip_path(share=fake.NFS_SHARE)
 
