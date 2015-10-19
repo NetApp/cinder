@@ -429,7 +429,7 @@ class NetAppNFSDriver(nfs.NfsDriver):
             (share, file_name) = res
             LOG.debug('Cache share: %s', share)
             if (share and
-                    self._is_share_vol_compatible(volume, share)):
+                    self._is_share_clone_compatible(volume, share)):
                 try:
                     self._do_clone_rel_img_cache(
                         file_name, volume['name'], share, file_name)
@@ -447,7 +447,7 @@ class NetAppNFSDriver(nfs.NfsDriver):
         cloned = False
         image_location = self._construct_image_nfs_url(image_location)
         share = self._is_cloneable_share(image_location)
-        if share and self._is_share_vol_compatible(volume, share):
+        if share and self._is_share_clone_compatible(volume, share):
             LOG.debug('Share is cloneable %s', share)
             volume['provider_location'] = share
             (__, ___, img_file) = image_location.rpartition('/')
@@ -624,9 +624,23 @@ class NetAppNFSDriver(nfs.NfsDriver):
         path = self.local_path(volume)
         self._resize_image_file(path, new_size)
 
-    def _is_share_vol_compatible(self, volume, share):
-        """Checks if share is compatible with volume to host it."""
+    def _is_share_clone_compatible(self, volume, share):
+        """Checks if share is compatible with volume to host its clone."""
         raise NotImplementedError()
+
+    def _share_has_space_for_clone(self, share, size_in_gib, thin=True):
+        """Is there space on the share for a clone given the original size?"""
+        requested_size = size_in_gib * units.Gi
+
+        total_size, total_available = self._get_capacity_info(share)
+
+        reserved_ratio = 1.0 - self.configuration.nfs_used_ratio
+        reserved = int(round(total_size * reserved_ratio))
+        available = max(0, total_available - reserved)
+        if thin:
+            available = available * self.configuration.nfs_oversub_ratio
+
+        return available >= requested_size
 
     def _check_share_can_hold_size(self, share, size):
         """Checks if volume can hold image with size."""
@@ -1126,13 +1140,23 @@ class NetAppDirectCmodeNfsDriver (NetAppDirectNfsDriver):
                     return vol
         return None
 
-    def _is_share_vol_compatible(self, volume, share):
-        """Checks if share is compatible with volume to host it."""
-        compatible = self._is_share_eligible(share, volume['size'])
+    def _is_share_clone_compatible(self, volume, share):
+        """Checks if share is compatible with volume to host its clone."""
+        thin = self._is_volume_thin_provisioned(volume)
+        compatible = self._share_has_space_for_clone(share,
+                                                     volume['size'],
+                                                     thin)
         if compatible and self.ssc_enabled:
             matched = self._is_share_vol_type_match(volume, share)
             compatible = compatible and matched
         return compatible
+
+    def _is_volume_thin_provisioned(self, volume):
+        if self.configuration.nfs_sparsed_volumes:
+            return True
+        if self.ssc_enabled and volume in self.ssc_vols['thin']:
+            return True
+        return False
 
     def _is_share_vol_type_match(self, volume, share):
         """Checks if share matches volume type."""
@@ -1639,9 +1663,10 @@ class NetAppDirect7modeNfsDriver (NetAppDirectNfsDriver):
         LOG.debug('No share match found for ip %s', ip)
         return None
 
-    def _is_share_vol_compatible(self, volume, share):
-        """Checks if share is compatible with volume to host it."""
-        return self._is_share_eligible(share, volume['size'])
+    def _is_share_clone_compatible(self, volume, share):
+        """Checks if share is compatible with volume to host its clone."""
+        thin = self.configuration.nfs_sparsed_volumes
+        return self._share_has_space_for_clone(share, volume['size'], thin)
 
     def get_flexvol_capacity(self, flexvol_path):
         """Gets total capacity and free capacity, in bytes, of the flexvol."""
