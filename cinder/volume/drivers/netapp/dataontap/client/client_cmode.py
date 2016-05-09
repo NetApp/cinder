@@ -796,6 +796,60 @@ class Client(client_base.Client):
             'aggr-ownership-attributes') or netapp_api.NaElement('none')
         return aggr_ownership_attrs.get_child_content('home-name')
 
+    def get_aggregate_capacities(self, aggregate_names):
+        """Gets capacity info for multiple aggregates."""
+
+        if not isinstance(aggregate_names, list):
+            return {}
+
+        aggregates = {}
+        for aggregate_name in aggregate_names:
+            aggregates[aggregate_name] = self.get_aggregate_capacity(
+                aggregate_name)
+
+        return aggregates
+
+    def get_aggregate_capacity(self, aggregate_name):
+        """Gets capacity info for an aggregate."""
+
+        desired_attributes = {
+            'aggr-attributes': {
+                'aggr-space-attributes': {
+                    'percent-used-capacity': None,
+                    'size-available': None,
+                    'size-total': None,
+                },
+            },
+        }
+
+        try:
+            aggrs = self._get_aggregates(aggregate_names=[aggregate_name],
+                                         desired_attributes=desired_attributes)
+        except netapp_api.NaApiError:
+            msg = _('Failed to get info for aggregate %s.')
+            LOG.exception(msg % aggregate_name)
+            return {}
+
+        if len(aggrs) < 1:
+            return {}
+
+        aggr_attributes = aggrs[0]
+        aggr_space_attributes = aggr_attributes.get_child_by_name(
+            'aggr-space-attributes') or netapp_api.NaElement('none')
+
+        percent_used = int(aggr_space_attributes.get_child_content(
+            'percent-used-capacity'))
+        size_available = float(aggr_space_attributes.get_child_content(
+            'size-available'))
+        size_total = float(aggr_space_attributes.get_child_content(
+            'size-total'))
+
+        return {
+            'percent-used': percent_used,
+            'size-available': size_available,
+            'size-total': size_total,
+        }
+
     def get_performance_instance_uuids(self, object_name, node_name):
         """Get UUIDs of performance instances for a cluster node."""
 

@@ -765,3 +765,27 @@ ISCSI_INITIATOR_GET_AUTH_ELEM = etree.XML("""
 ISCSI_INITIATOR_AUTH_LIST_INFO_FAILURE = etree.XML("""
 <results status="failed" errno="13112" reason="Initiator %s not found,
  please use default authentication." />""" % INITIATOR_IQN)
+
+AGGR_SIZE_TOTAL = 107374182400
+AGGR_SIZE_AVAILABLE = 59055800320
+AGGR_USED_PERCENT = 45
+AGGR_GET_ITER_CAPACITY_RESPONSE = etree.XML("""
+  <results status="passed">
+    <attributes-list>
+      <aggr-attributes>
+        <aggr-space-attributes>
+          <percent-used-capacity>%(used)s</percent-used-capacity>
+          <size-total>%(total_size)s</size-total>
+          <size-available>%(available_size)s</size-available>
+        </aggr-space-attributes>
+        <aggregate-name>%(aggr)s</aggregate-name>
+      </aggr-attributes>
+    </attributes-list>
+    <num-records>1</num-records>
+  </results>
+""" % {
+    'aggr': VOLUME_AGGREGATE_NAME,
+    'used': AGGR_USED_PERCENT,
+    'available_size': AGGR_SIZE_AVAILABLE,
+    'total_size': AGGR_SIZE_TOTAL,
+})

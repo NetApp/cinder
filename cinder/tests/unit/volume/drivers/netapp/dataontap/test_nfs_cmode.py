@@ -87,6 +87,8 @@ class NetAppCmodeNfsDriverTestCase(test.TestCase):
         class test_volume(object):
             pass
 
+        self.driver.zapi_client = mock.Mock()
+
         test_volume = test_volume()
         test_volume.id = {'vserver': 'openstack', 'name': 'vola'}
         test_volume.aggr = {
@@ -139,6 +141,17 @@ class NetAppCmodeNfsDriverTestCase(test.TestCase):
         self.driver.perf_library.get_node_utilization_for_pool = (
             mock.Mock(return_value=30.0))
 
+        aggr_capacities = {
+            'aggr1': {
+                'percent-used': 45,
+                'size-available': 59055800320.0,
+                'size-total': 107374182400.0,
+            },
+        }
+        mock_get_aggr_capacities = self.mock_object(
+            self.driver.zapi_client, 'get_aggregate_capacities',
+            mock.Mock(return_value=aggr_capacities))
+
         result = self.driver._get_pool_stats(filter_function='filter',
                                              goodness_function='goodness')
 
@@ -150,6 +163,7 @@ class NetAppCmodeNfsDriverTestCase(test.TestCase):
                      'netapp_nocompression': 'true',
                      'thin_provisioning_support': not thick,
                      'free_capacity_gb': 12.0,
+                     'aggregate_used_percent': 45,
                      'netapp_thin_provisioned': netapp_thin,
                      'total_capacity_gb': 4468.0,
                      'netapp_compression': 'false',
@@ -166,6 +180,7 @@ class NetAppCmodeNfsDriverTestCase(test.TestCase):
                      'goodness_function': 'goodness'}]
 
         self.assertEqual(expected, result)
+        mock_get_aggr_capacities.assert_called_once_with(['aggr1'])
 
     def test_check_for_setup_error(self):
         super_check_for_setup_error = self.mock_object(

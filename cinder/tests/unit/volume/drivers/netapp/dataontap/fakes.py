@@ -237,6 +237,7 @@ FAKE_CMODE_POOLS = [
         'netapp_thick_provisioned': u'false',
         'netapp_thin_provisioned': u'true',
         'netapp_unmirrored': u'false',
+        'aggregate_used_percent': 45,
         'pool_name': 'open123',
         'reserved_percentage': 0,
         'total_capacity_gb': 4.65,

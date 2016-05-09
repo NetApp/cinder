@@ -217,6 +217,14 @@ class NetAppBlockStorageCmodeLibrary(block_base.NetAppBlockStorageLibrary):
         filtered_pools = self._get_filtered_pools()
         self.perf_library.update_performance_cache(filtered_pools)
 
+        aggregates = set()
+
+        for vol in filtered_pools:
+            aggregates.add(vol.aggr['name'])
+
+        aggregates = list(aggregates)
+        aggr_capacities = self.zapi_client.get_aggregate_capacities(aggregates)
+
         for vol in filtered_pools:
             pool_name = vol.id['name']
 
@@ -239,6 +247,11 @@ class NetAppBlockStorageCmodeLibrary(block_base.NetAppBlockStorageLibrary):
 
             pool['provisioned_capacity_gb'] = (round(
                 pool['total_capacity_gb'] - pool['free_capacity_gb'], 2))
+
+            aggregate_name = vol.aggr['name']
+            aggr_capacity = aggr_capacities.get(aggregate_name, {})
+            pool['aggregate_used_percent'] = aggr_capacity.get(
+                'percent-used', 0)
 
             pool['netapp_raid_type'] = vol.aggr['raid_type']
             pool['netapp_disk_type'] = vol.aggr['disk_type']
