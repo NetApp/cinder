@@ -173,10 +173,17 @@ class NetAppCmodeNfsDriver(nfs_base.NetAppNfsDriver):
     def _get_pool_stats(self, filter_function=None, goodness_function=None):
         """Retrieve pool (i.e. NFS share) stats info from SSC volumes."""
 
-        self.perf_library.update_performance_cache(
-            self.ssc_vols.get('all', []))
+        ssc_vols = self.ssc_vols.get('all', [])
+        self.perf_library.update_performance_cache(ssc_vols)
 
         pools = []
+        aggregates = set()
+
+        for vol in ssc_vols:
+            aggregates.add(vol.aggr['name'])
+
+        aggregates = list(aggregates)
+        aggr_capacities = self.zapi_client.get_aggregate_capacities(aggregates)
 
         for nfs_share in self._mounted_shares:
 
@@ -189,6 +196,10 @@ class NetAppCmodeNfsDriver(nfs_base.NetAppNfsDriver):
 
             # add SSC content if available
             vol = self._get_vol_for_share(nfs_share)
+            aggregate_name = vol.aggr['name']
+            aggr_capacity = aggr_capacities.get(aggregate_name, {})
+            pool['aggregate_used_percent'] = aggr_capacity.get(
+                'percent-used', 0)
             if vol and self.ssc_vols:
                 pool['netapp_raid_type'] = vol.aggr['raid_type']
                 pool['netapp_disk_type'] = vol.aggr['disk_type']

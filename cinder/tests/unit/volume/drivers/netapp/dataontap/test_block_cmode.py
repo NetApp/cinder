@@ -372,6 +372,17 @@ class NetAppBlockStorageCmodeLibraryTestCase(test.TestCase):
 
         thick = not thin and (netapp_lun_space_reservation == 'enabled')
 
+        aggr_capacities = {
+            'aggr1': {
+                'percent-used': 45,
+                'size-available': 59055800320.0,
+                'size-total': 107374182400.0,
+            },
+        }
+        mock_get_aggr_capacities = self.mock_object(
+            self.zapi_client, 'get_aggregate_capacities',
+            mock.Mock(return_value=aggr_capacities))
+
         result = self.library._get_pool_stats(filter_function='filter',
                                               goodness_function='goodness')
 
@@ -382,6 +393,7 @@ class NetAppBlockStorageCmodeLibraryTestCase(test.TestCase):
                      'thin_provisioning_support': not thick,
                      'thick_provisioning_support': thick,
                      'provisioned_capacity_gb': 8.0,
+                     'aggregate_used_percent': 45,
                      'netapp_thick_provisioned': netapp_thick,
                      'netapp_nocompression': 'true',
                      'free_capacity_gb': 2.0,
@@ -399,6 +411,7 @@ class NetAppBlockStorageCmodeLibraryTestCase(test.TestCase):
                      'filter_function': 'filter',
                      'goodness_function': 'goodness'}]
 
+        mock_get_aggr_capacities.assert_called_once_with(['aggr1'])
         self.assertEqual(expected, result)
 
     def test_delete_volume(self):
@@ -677,10 +690,21 @@ class NetAppBlockStorageCmodeLibraryTestCase(test.TestCase):
                          mock.Mock(return_value=[fake.FAKE_CMODE_VOL1]))
         self.library.perf_library.get_node_utilization_for_pool = (
             mock.Mock(return_value=30.0))
+        aggr_capacities = {
+            'aggr1': {
+                'percent-used': 45,
+                'size-available': 59055800320.0,
+                'size-total': 107374182400.0,
+            },
+        }
+        mock_get_aggr_capacities = self.mock_object(
+            self.zapi_client, 'get_aggregate_capacities',
+            mock.Mock(return_value=aggr_capacities))
 
         pools = self.library._get_pool_stats(filter_function='filter',
                                              goodness_function='goodness')
 
+        mock_get_aggr_capacities.assert_called_once_with(['aggr1'])
         self.assertListEqual(fake.FAKE_CMODE_POOLS, pools)
 
     def test_get_pool_stats_no_filtered_pools(self):
